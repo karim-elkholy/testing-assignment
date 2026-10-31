@@ -19,6 +19,8 @@ class ForgottenPasswordPage(BasePage):
     ALERT: Locator = (By.CSS_SELECTOR, ".alert-danger")
     SUCCESS: Locator = (By.CSS_SELECTOR, ".alert-success")
     HEADING_TEXT: str = "Forgot Your Password?"
+    BREADCRUMB_TEXT: str = "Forgotten Password"
+    ROUTE: str = "account/forgotten"
 
     def open(self, route: str = "account/forgotten") -> Self:
         super().open(route)
@@ -27,9 +29,14 @@ class ForgottenPasswordPage(BasePage):
     def is_loaded(self) -> bool:
         """
         True once the 'Forgot Your Password?' form is visible.
+
+        This demo's on-page heading reads 'Account'; the page name only appears
+        in the browser tab title and breadcrumb, so check those, not the heading.
         """
         self.find(self.EMAIL)
-        return "account/forgotten" in self.driver.current_url and self.contains_text(self.HEADING_TEXT)
+        route = self.ROUTE
+        named = self.HEADING_TEXT.lower() in self.driver.title.lower() or self.contains_text(self.BREADCRUMB_TEXT)
+        return route in self.driver.current_url and named
 
     def request_reset(self, email: str) -> Self:
         """

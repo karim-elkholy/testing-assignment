@@ -24,6 +24,8 @@ class EditAccountPage(BasePage):
     SUCCESS: Locator = (By.CSS_SELECTOR, ".alert-success")
     FIELD_ERRORS: Locator = (By.CSS_SELECTOR, ".text-danger")
     HEADING_TEXT: str = "My Account Information"
+    BREADCRUMB_TEXT: str = "Edit Information"
+    ROUTE: str = "account/edit"
 
     def open(self, route: str = "account/edit") -> Self:
         super().open(route)
@@ -32,9 +34,14 @@ class EditAccountPage(BasePage):
     def is_loaded(self) -> bool:
         """
         True once the pre-filled account form is visible (requires a logged-in user).
+
+        This demo's on-page heading reads 'Account'; the page name only appears
+        in the browser tab title and breadcrumb, so check those, not the heading.
         """
         self.find(self.FIRST_NAME)
-        return "account/edit" in self.driver.current_url and self.contains_text(self.HEADING_TEXT)
+        route = self.ROUTE
+        named = self.HEADING_TEXT.lower() in self.driver.title.lower() or self.contains_text(self.BREADCRUMB_TEXT)
+        return route in self.driver.current_url and named
 
     def value(self, locator: Locator) -> str:
         """
