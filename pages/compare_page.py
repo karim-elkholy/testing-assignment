@@ -9,6 +9,7 @@ so every comparison interaction used by T008 lives in one Page Object.
 
 from typing import Self
 
+from selenium.common.exceptions import ElementClickInterceptedException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 
@@ -35,33 +36,58 @@ class ComparePage(BasePage):
 
     # --- add actions -----------------------------------------------------------
 
-    def _click_compare_and_wait(self, button_css: str) -> str:
+    def _click_compare_and_wait(self, button_css: str, product_id: int) -> str:
         """
         Click a 'Compare this Product' button and return the banner text.
         """
         # Clear old banners so we only ever read the one for this click.
         self.driver.execute_script("document.querySelectorAll('.alert').forEach(a => a.remove())")
-        self.click((By.CSS_SELECTOR, button_css))
-        # The site fades banners out a few seconds after ANY button click, so a timer
-        # from an earlier click can start fading this new banner while it is still
-        # appearing. A faded banner counts as 'not visible' to Selenium, so wait for
-        # the banner to exist in the page (not to be visible) and read its raw text.
+        button = self.wait.until(ec.presence_of_element_located((By.CSS_SELECTOR, button_css)))
+        # Centre the button first: at the window edge a neighbouring product tile can
+        # cover it and the click is rejected as 'intercepted'.
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+        try:
+            self.wait.until(ec.element_to_be_clickable(button)).click()
+        except ElementClickInterceptedException:
+            # The page layout moved under the pointer; use the button's own click handler.
+            self.driver.execute_script("arguments[0].click();", button)
+        # The site fades banners out a few seconds after ANY button click, so a faded
+        # banner counts as 'not visible' to Selenium. Wait for the banner to exist in
+        # the page (not to be visible) and read its raw text.
         banner = self.wait.until(lambda d: d.find_elements(*self.ALERT))[0]
-        return (banner.get_attribute("textContent") or "").replace("×", "").strip()
+        text: str = (banner.get_attribute("textContent") or "").replace("\u00d7", "").strip()
+        # After every add the site scrolls the page to the top (a ~0.6s jQuery animation).
+        # Wait for it to finish, otherwise the next click lands on a moving page.
+        self.wait.until(lambda d: d.execute_script(
+            "return !(window.jQuery && jQuery('html, body').is(':animated'));"
+        ))
+        # Wait until the server has stored the product in the comparison list, so the
+        # next page load cannot read a stale list.
+        self.wait.until(lambda d: d.execute_script(
+            "const x = new XMLHttpRequest();"
+            "x.open('GET', 'index.php?route=product/compare', false); x.send();"
+            "return x.responseText.includes('remove=' + arguments[0]);",
+            product_id,
+        ))
+        return text
 
     def add_from_product_page(self, product_id: int) -> str:
         """
         Open a product page and click its 'Compare this Product' button.
         """
         super().open(f"product/product&product_id={product_id}")
-        return self._click_compare_and_wait(f"#content button[onclick=\"compare.add('{product_id}');\"]")
+        return self._click_compare_and_wait(
+            f"#content button[onclick=\"compare.add('{product_id}');\"]", product_id
+        )
 
     def add_from_category_page(self, product_id: int) -> str:
         """
         Click 'Compare this Product' on a product tile of the category page
         that is already open (e.g. Desktops).
         """
-        return self._click_compare_and_wait(f".product-thumb button[onclick=\"compare.add('{product_id}');\"]")
+        return self._click_compare_and_wait(
+            f".product-thumb button[onclick=\"compare.add('{product_id}');\"]", product_id
+        )
 
     def header_counter(self) -> str:
         """
@@ -97,7 +123,7 @@ class ComparePage(BasePage):
             (By.CSS_SELECTOR, f'#content a.btn-danger[href*="remove={product_id}"]')
         ))
         alerts = self.find_all(self.ALERT)
-        return alerts[0].text.replace("×", "").strip() if alerts else ""
+        return alerts[0].text.replace("\u00d7", "").strip() if alerts else ""
 
     def has_table(self) -> bool:
         return len(self.find_all(self.TABLE)) > 0
