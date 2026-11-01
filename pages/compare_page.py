@@ -42,7 +42,12 @@ class ComparePage(BasePage):
         # Clear old banners so we only ever read the one for this click.
         self.driver.execute_script("document.querySelectorAll('.alert').forEach(a => a.remove())")
         self.click((By.CSS_SELECTOR, button_css))
-        return self.find(self.ALERT).text.replace("×", "").strip()
+        # The site fades banners out a few seconds after ANY button click, so a timer
+        # from an earlier click can start fading this new banner while it is still
+        # appearing. A faded banner counts as 'not visible' to Selenium, so wait for
+        # the banner to exist in the page (not to be visible) and read its raw text.
+        banner = self.wait.until(lambda d: d.find_elements(*self.ALERT))[0]
+        return (banner.get_attribute("textContent") or "").replace("×", "").strip()
 
     def add_from_product_page(self, product_id: int) -> str:
         """
