@@ -29,6 +29,18 @@ class LoginPage(BasePage):
         self.click(self.SUBMIT)
         return self
 
+    def is_loaded(self) -> bool:
+        """
+        True once the login form is displayed (also when OpenCart bounced
+        a protected account page here after logout).
+        """
+        try:
+            self.wait.until(lambda d: "route=account/login" in self.driver.current_url)
+            self.find(self.EMAIL)
+            return True
+        except Exception:
+            return False
+
     def warning_text(self) -> str:
         """
         Text of the warning banner shown after a failed login.

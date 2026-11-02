@@ -135,6 +135,19 @@ class BasePage:
         self.wait.until(lambda d: "account/logout" in d.current_url)
         return self
 
+    def my_account_menu_routes(self) -> list[str]:
+        """
+        Route part of every link inside the My account dropdown, e.g.
+        ['account/register', 'account/login'] when logged out. The links
+        sit in the header DOM (hidden) even while the menu is closed.
+        """
+        routes: list[str] = []
+        for link in self.driver.find_elements(By.CSS_SELECTOR, "#top-links .dropdown-menu a"):
+            href = link.get_attribute("href") or ""
+            if "route=" in href:
+                routes.append(href.split("route=")[-1])
+        return routes
+
     # --- header cart -------------------------------------------------------
 
     def cart_summary(self) -> str:
