@@ -33,6 +33,8 @@ class BasePage:
     MENU_LOGOUT: Locator = (By.CSS_SELECTOR, "#top-links .dropdown-menu a[href*='account/logout']")
     # Header cart summary, e.g. '1 item(s) - $123.20'.
     CART_SUMMARY: Locator = (By.ID, "cart-total")
+    # Header wish-list counter, e.g. 'Wish List (1)'.
+    WISHLIST_TOTAL: Locator = (By.ID, "wishlist-total")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         self.driver: WebDriver = driver
@@ -165,3 +167,10 @@ class BasePage:
         """
         match = re.search(r"\d+", self.cart_summary())
         return match.group(0) if match else ""
+
+    def wishlist_count_text(self) -> str:
+        """
+        Header wish-list counter text, e.g. 'Wish List (1)'. The counter
+        updates in place right after the wish-list heart is clicked.
+        """
+        return self.find(self.WISHLIST_TOTAL).text.strip()

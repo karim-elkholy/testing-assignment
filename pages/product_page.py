@@ -18,6 +18,11 @@ IPHONE_PRODUCT_ID: int = 40
 # A second Apple product with its own price, model and availability, used
 # for the side-by-side comparison scenarios (F8).
 MACBOOK_PRODUCT_ID: int = 43
+# Further catalogue ids used by the comparison limit scenario (F8); all are
+# visible as tiles on the Desktops category page.
+MACBOOK_AIR_PRODUCT_ID: int = 44
+SONY_VAIO_PRODUCT_ID: int = 46
+HP_LP3065_PRODUCT_ID: int = 47
 
 
 class ProductPage(BasePage):
