@@ -43,6 +43,11 @@ def make_driver() -> WebDriver:
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
+    # The shared demo's Let's Encrypt cert sometimes lapses between the site
+    # admin's renewals (it expired 2026-11-02 overnight); these tests target
+    # OpenCart's behaviour, not TLS, so tolerate a stale certificate instead
+    # of failing every test with Chrome's 'Privacy error' page.
+    opts.add_argument("--ignore-certificate-errors")
     return webdriver.Chrome(options=opts)
 
 
