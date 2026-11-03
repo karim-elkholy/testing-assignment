@@ -7,7 +7,11 @@ Category page with product sorting: route=product/category&path=20 (Desktops).
 import re
 from typing import Self
 
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    StaleElementReferenceException,
+    TimeoutException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import Select
@@ -77,16 +81,19 @@ class CategoryPage(BasePage):
 
         The counter only moves once the add has been processed, so this
         also guarantees the request finished before callers navigate away.
-        The shared demo occasionally drops a compare add, hence the
-        re-click while the counter disagrees.
+        The previous add's banner is closed first: it overlays the tiles
+        and intercepts the next click. The shared demo also occasionally
+        drops a compare add, hence the re-click while the counter
+        disagrees.
         """
-        last_error: TimeoutException | None = None
+        last_error: Exception | None = None
         for _ in range(3):
-            self.click(self._tile_compare_button(product_id))
+            self._dismiss_banner()
             try:
+                self.click(self._tile_compare_button(product_id))
                 self.wait.until(lambda d: self.compare_count() == expected_count)
                 return self
-            except TimeoutException as exc:
+            except (ElementClickInterceptedException, TimeoutException) as exc:
                 last_error = exc
         assert last_error is not None
         raise last_error
@@ -99,7 +106,13 @@ class CategoryPage(BasePage):
         (a dropped add also leaves it unchanged), so callers verify the
         effect on the compare page and call this again to retry.
         """
-        self.click(self._tile_compare_button(product_id))
+        self._dismiss_banner()
+        try:
+            self.click(self._tile_compare_button(product_id))
+        except ElementClickInterceptedException:
+            # The banner reappeared between the dismiss and the click.
+            self._dismiss_banner()
+            self.click(self._tile_compare_button(product_id))
         try:
             self.wait.until(
                 lambda d: any(
@@ -109,6 +122,21 @@ class CategoryPage(BasePage):
             )
         except TimeoutException:
             pass  # e.g. the product was already in the comparison; callers verify
+
+    def _dismiss_banner(self) -> None:
+        """
+        Close the response banner via its × button so it cannot cover the
+        product tiles (OpenCart parks each banner above the content).
+        """
+        for close in self.driver.find_elements(By.CSS_SELECTOR, ".alert-dismissible .close"):
+            try:
+                close.click()
+            except (ElementClickInterceptedException, StaleElementReferenceException):
+                # Fall back to removing it if the button will not take the click.
+                self.driver.execute_script(
+                    "document.querySelectorAll('.alert-dismissible').forEach(a => a.remove())"
+                )
+                return
 
     def _tile_compare_button(self, product_id: int) -> Locator:
         # Every tile carries its own compare button for its product id, so

@@ -8,6 +8,7 @@ import re
 from typing import Self
 
 from selenium.common.exceptions import (
+    ElementClickInterceptedException,
     NoSuchElementException,
     StaleElementReferenceException,
     TimeoutException,
@@ -63,7 +64,13 @@ class BasePage:
         return self.driver.find_elements(*locator)
 
     def click(self, locator: Locator) -> None:
-        self.wait.until(ec.element_to_be_clickable(locator)).click()
+        element = self.wait.until(ec.element_to_be_clickable(locator))
+        try:
+            element.click()
+        except (StaleElementReferenceException, ElementClickInterceptedException):
+            # The page moved between the lookup and the click (a reload, or
+            # a banner parked over the element); retry once on fresh state.
+            self.wait.until(ec.element_to_be_clickable(locator)).click()
 
     def type(self, locator: Locator, text: str) -> None:
         field: WebElement = self.find(locator)
