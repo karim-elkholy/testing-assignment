@@ -8,6 +8,7 @@ import re
 from typing import Self
 
 from selenium.common.exceptions import (
+    ElementClickInterceptedException,
     NoSuchElementException,
     StaleElementReferenceException,
     TimeoutException,
@@ -33,6 +34,8 @@ class BasePage:
     MENU_LOGOUT: Locator = (By.CSS_SELECTOR, "#top-links .dropdown-menu a[href*='account/logout']")
     # Header cart summary, e.g. '1 item(s) - $123.20'.
     CART_SUMMARY: Locator = (By.ID, "cart-total")
+    # Header wish-list counter, e.g. 'Wish List (1)'.
+    WISHLIST_TOTAL: Locator = (By.ID, "wishlist-total")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         self.driver: WebDriver = driver
@@ -61,7 +64,13 @@ class BasePage:
         return self.driver.find_elements(*locator)
 
     def click(self, locator: Locator) -> None:
-        self.wait.until(ec.element_to_be_clickable(locator)).click()
+        element = self.wait.until(ec.element_to_be_clickable(locator))
+        try:
+            element.click()
+        except (StaleElementReferenceException, ElementClickInterceptedException):
+            # The page moved between the lookup and the click (a reload, or
+            # a banner parked over the element); retry once on fresh state.
+            self.wait.until(ec.element_to_be_clickable(locator)).click()
 
     def type(self, locator: Locator, text: str) -> None:
         field: WebElement = self.find(locator)
@@ -135,6 +144,19 @@ class BasePage:
         self.wait.until(lambda d: "account/logout" in d.current_url)
         return self
 
+    def my_account_menu_routes(self) -> list[str]:
+        """
+        Route part of every link inside the My account dropdown, e.g.
+        ['account/register', 'account/login'] when logged out. The links
+        sit in the header DOM (hidden) even while the menu is closed.
+        """
+        routes: list[str] = []
+        for link in self.driver.find_elements(By.CSS_SELECTOR, "#top-links .dropdown-menu a"):
+            href = link.get_attribute("href") or ""
+            if "route=" in href:
+                routes.append(href.split("route=")[-1])
+        return routes
+
     # --- header cart -------------------------------------------------------
 
     def cart_summary(self) -> str:
@@ -152,3 +174,10 @@ class BasePage:
         """
         match = re.search(r"\d+", self.cart_summary())
         return match.group(0) if match else ""
+
+    def wishlist_count_text(self) -> str:
+        """
+        Header wish-list counter text, e.g. 'Wish List (1)'. The counter
+        updates in place right after the wish-list heart is clicked.
+        """
+        return self.find(self.WISHLIST_TOTAL).text.strip()
