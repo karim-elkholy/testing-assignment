@@ -13,7 +13,7 @@ Scenario 2: removing one product leaves the other compared.
 Scenario 3: at most four products are compared - a fifth replaces the
             oldest and 'Product Compare (4)' stays.
 Scenario 4: the empty comparison page names the wrong context; expected
-            failure recorded as Defect 6 (xfail).
+            failure recorded as Defect 5 (xfail).
 
 F8 is independent of login: the comparison lives in the visitor's
 session, so every scenario runs as a guest in its own fresh browser.
@@ -150,7 +150,7 @@ def test_scenario_3_four_product_limit(
 
 
 @pytest.mark.xfail(
-    reason="Defect 6: the empty comparison page shows the shopping cart's "
+    reason="Defect 5: the empty comparison page shows the shopping cart's "
     "'Your shopping cart is empty!' instead of 'You have not chosen any "
     "products to compare.'"
 )
@@ -163,5 +163,5 @@ def test_scenario_4_empty_comparison_message(
     snap("t008_scenario_4")
 
     # After clearing the comparison the page should say so - it does not
-    # (recorded as Defect 6), which is exactly what this xfail pins down.
+    # (recorded as Defect 5), which is exactly what this xfail pins down.
     assert compare.contains_text("You have not chosen any products to compare.")
